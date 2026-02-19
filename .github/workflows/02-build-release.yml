@@ -1,4 +1,4 @@
-name: 02 - Build Signed Release APK
+name: 02 - Build Signed Lite Release APK
 
 on:
   workflow_dispatch:
@@ -24,40 +24,53 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # Restore keystore from GitHub Secrets (base64)
       - name: Decode keystore
         shell: bash
         run: |
-          if [ -z "${{ secrets.RELEASE_KEYSTORE_B64 }}" ]; then
-            echo "ERROR: Missing secret RELEASE_KEYSTORE_B64"
-            exit 1
-          fi
           echo "${{ secrets.RELEASE_KEYSTORE_B64 }}" | base64 --decode > "$RUNNER_TEMP/release.jks"
-          ls -lah "$RUNNER_TEMP/release.jks"
+          test -s "$RUNNER_TEMP/release.jks"
 
-      # Build signed release using env vars expected by build.gradle.ready
-      - name: Build signed release APK
+      - name: Build signed Lite release APK
         env:
+          # New env names (если используешь build.gradle.ready)
           SIGNING_STORE_FILE: ${{ runner.temp }}/release.jks
           SIGNING_STORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        run: |
-          ./gradlew assembleRelease --stacktrace
 
-      # Verify APK signature (uses latest installed build-tools on runner)
+          # Old env names (совместимость со старым build.gradle)
+          KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_SIGN_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_SIGN_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          ./gradlew assembleLiteRelease --stacktrace
+          echo "Outputs:"
+          find app/build/outputs/apk -maxdepth 6 -type f -name "*.apk" -print
+
+      - name: Locate Lite release APK
+        id: locate
+        shell: bash
+        run: |
+          APK="$(find app/build/outputs/apk/lite/release -type f -name "*lite*-release*.apk" | head -n 1)"
+          if [ -z "$APK" ]; then
+            echo "ERROR: Lite release APK not found in app/build/outputs/apk/lite/release/"
+            ls -lah app/build/outputs/apk || true
+            ls -lah app/build/outputs/apk/lite || true
+            ls -lah app/build/outputs/apk/lite/release || true
+            exit 1
+          fi
+          echo "APK=$APK" >> "$GITHUB_OUTPUT"
+          echo "Found APK: $APK"
+
       - name: Verify APK signature
         shell: bash
         run: |
-          APK_PATH="$(ls -1 app/build/outputs/apk/release/*.apk | head -n 1)"
-          echo "APK: $APK_PATH"
           BUILD_TOOLS="$(ls -1 ${ANDROID_SDK_ROOT}/build-tools | sort -V | tail -n 1)"
-          echo "Using build-tools: $BUILD_TOOLS"
-          "${ANDROID_SDK_ROOT}/build-tools/${BUILD_TOOLS}/apksigner" verify --verbose "$APK_PATH"
+          "${ANDROID_SDK_ROOT}/build-tools/${BUILD_TOOLS}/apksigner" verify --verbose "${{ steps.locate.outputs.APK }}"
 
-      # Upload APK as artifact
-      - name: Upload release APK artifact
+      - name: Upload Lite release APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
-          path: app/build/outputs/apk/release/*.apk
+          name: app-lite-release-apk
+          path: ${{ steps.locate.outputs.APK }}
