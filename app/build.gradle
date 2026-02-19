@@ -55,25 +55,26 @@ android {
         vectorDrawables.useSupportLibrary = true
     }
 
+android {
     signingConfigs {
         release {
-            def keystoreProperties = new Properties()
-            def keystorePropsFile = file("keystore/keystore_config")
-
-            if (keystorePropsFile.exists()) {
-                file("keystore/keystore_config").withInputStream { keystoreProperties.load(it) }
-                storeFile file("$keystoreProperties.storeFile")
-                storePassword "$keystoreProperties.storePassword"
-                keyAlias "$keystoreProperties.keyAlias"
-                keyPassword "$keystoreProperties.keyPassword"
-            } else {
-                storeFile file(System.getenv('KEYSTORE_FILE'))
-                storePassword System.getenv('KEYSTORE_PASSWORD')
-                keyAlias System.getenv('RELEASE_SIGN_KEY_ALIAS')
-                keyPassword System.getenv('RELEASE_SIGN_KEY_PASSWORD')
+            def (storeFilePath, storePass, keyAlias, keyPass) = signingFromEnv()
+            if (storeFilePath && storePass && keyAlias && keyPass) {
+                storeFile file(storeFilePath)
+                storePassword storePass
+                this.keyAlias keyAlias
+                keyPassword keyPass
             }
         }
     }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
+}
+
 
     buildTypes {
         release {
