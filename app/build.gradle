@@ -31,14 +31,6 @@ def getVersionName = { ->
         return '0.0.0'
     }
 }
-def signingFromEnv = {
-    def storeFilePath = System.getenv("SIGNING_STORE_FILE")
-    def storePass = System.getenv("SIGNING_STORE_PASSWORD")
-    def keyAlias = System.getenv("SIGNING_KEY_ALIAS")
-    def keyPass = System.getenv("SIGNING_KEY_PASSWORD")
-
-    return [storeFilePath, storePass, keyAlias, keyPass]
-}
 
 android {
     //noinspection GradleDependency
@@ -55,26 +47,37 @@ android {
         vectorDrawables.useSupportLibrary = true
     }
 
-android {
     signingConfigs {
         release {
-            def (storeFilePath, storePass, keyAlias, keyPass) = signingFromEnv()
-            if (storeFilePath && storePass && keyAlias && keyPass) {
-                storeFile file(storeFilePath)
-                storePassword storePass
-                this.keyAlias keyAlias
-                keyPassword keyPass
+            def keystoreProperties = new Properties()
+            def keystorePropsFile = file("keystore/keystore_config")
+
+            if (keystorePropsFile.exists()) {
+                file("keystore/keystore_config").withInputStream { keystoreProperties.load(it) }
+                storeFile file("${keystoreProperties.storeFile}")
+                storePassword "${keystoreProperties.storePassword}"
+                keyAlias "${keystoreProperties.keyAlias}"
+                keyPassword "${keystoreProperties.keyPassword}"
+            } else {
+                // CI-friendly signing via environment variables (GitHub Actions Secrets).
+                // Supports both the new SIGNING_* names and the legacy KEYSTORE_*/RELEASE_SIGN_* names.
+                def storeFilePath = System.getenv('SIGNING_STORE_FILE') ?: System.getenv('KEYSTORE_FILE')
+                def storePass     = System.getenv('SIGNING_STORE_PASSWORD') ?: System.getenv('KEYSTORE_PASSWORD')
+                def aliasEnv      = System.getenv('SIGNING_KEY_ALIAS') ?: System.getenv('RELEASE_SIGN_KEY_ALIAS')
+                def keyPass       = System.getenv('SIGNING_KEY_PASSWORD') ?: System.getenv('RELEASE_SIGN_KEY_PASSWORD')
+
+                if (storeFilePath && storePass && aliasEnv && keyPass) {
+                    storeFile file(storeFilePath)
+                    storePassword storePass
+                    keyAlias aliasEnv
+                    keyPassword keyPass
+                } else {
+                    // Leave unconfigured if no signing info provided (e.g., local build without keys).
+                    println("Release signing is not configured: missing keystore env vars or keystore_config file.")
+                }
             }
         }
     }
-
-    buildTypes {
-        release {
-            signingConfig signingConfigs.release
-        }
-    }
-}
-
 
     buildTypes {
         release {
@@ -162,7 +165,7 @@ dependencies {
     def webkitVersion = '1.8.0' // 1.8.0 - last api16 compatible
     //noinspection GradleDependency
     implementation "androidx.webkit:webkit:$webkitVersion"
-    def glideVersion = '5.0.5' // glide stable
+    def glideVersion = '4.16.0' // glide stable
     implementation "com.github.bumptech.glide:glide:${glideVersion}"
     implementation("com.github.bumptech.glide:okhttp3-integration:${glideVersion}") {
         exclude group: 'glide-parent'
@@ -181,7 +184,7 @@ dependencies {
     implementation 'org.brotli:dec:0.1.2'
     //noinspection GradleDependency
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kp_version" // or jdk7
-    def coroutinesVersion = '1.7.3' // 1.7.3 - last compatible with kp 1.8.22
+    def coroutinesVersion = '1.7.3' // coroutines 1.7.3 - last api16 compatible
     //noinspection GradleDependency
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion"
     //noinspection GradleDependency 2.10.x thorow java.lang.VerifyError on api17
@@ -192,7 +195,6 @@ dependencies {
     implementation 'info.guardianproject.netcipher:netcipher:2.1.0' // SSL / TLS
     implementation 'junit:junit:4.13.2' // For Crosswalk compatibility
     implementation 'org.conscrypt:conscrypt-android:2.5.3' // for TLS v1.3 on API < 29
-    //noinspection GradleDependency 1.8.1 fails on build with old gradle
     implementation 'org.mozilla:rhino:1.7.15' // JavaScript to run PAC file to get correct proxies
     // crosswalk latest
     liteApi fileTree(dir: 'libs', include: ['xwalk_shared_library-23.53.589.4.aar'])
