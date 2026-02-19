@@ -1,22 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+<layer-list
+    xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape>
             <gradient
-                android:angle="270"
+                android:startColor="@color/lampa_background"
                 android:endColor="@color/lampa_background"
-                android:startColor="@color/lampa_background" />
+                android:angle="270.0" />
             <size
-                android:width="110dp"
-                android:height="110dp" />
-            <corners android:radius="55dp" />
+                android:height="110.0dip"
+                android:width="110.0dip" />
+            <corners
+                android:radius="55.0dip" />
         </shape>
     </item>
     <item
-        android:bottom="6dp"
-        android:left="6dp"
-        android:right="6dp"
-        android:top="6dp"
+        android:gravity="top"
         android:drawable="@drawable/lampa_logo_icon"
-        android:gravity="top" />
+        android:left="6.0dip"
+        android:top="6.0dip"
+        android:right="6.0dip"
+        android:bottom="6.0dip" />
 </layer-list>
