@@ -31,6 +31,14 @@ def getVersionName = { ->
         return '0.0.0'
     }
 }
+def signingFromEnv = {
+    def storeFilePath = System.getenv("SIGNING_STORE_FILE")
+    def storePass = System.getenv("SIGNING_STORE_PASSWORD")
+    def keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+    def keyPass = System.getenv("SIGNING_KEY_PASSWORD")
+
+    return [storeFilePath, storePass, keyAlias, keyPass]
+}
 
 android {
     //noinspection GradleDependency
